@@ -481,6 +481,40 @@ precomputed_shanghai_holidays = pd.to_datetime([
     "2025-10-04",
 ])
 
+import pandas as pd
+import numpy as np
+from .utils.memoize import lazyval
+from pytz import UTC
+from .calendar_helpers import NANOSECONDS_PER_MINUTE
+
+
+def compute_all_minutes_cn(opens_in_ns, closes_in_ns):
+    """
+    Given arrays of opens and closes, both in nanoseconds,
+    return an array of each minute between the opens and closes.
+    """
+    deltas = closes_in_ns - opens_in_ns
+
+    # + 1 because we want 390 mins per standard day, not 389
+    daily_sizes = (deltas // NANOSECONDS_PER_MINUTE) + 1
+    # num_minutes = daily_sizes.sum()
+
+    # One allocation for the entire thing. This assumes that each day
+    # represents a contiguous block of minutes.
+    pieces = []
+
+    for open_, size in zip(opens_in_ns, daily_sizes):
+        day_mins = np.arange(open_,
+                      open_ + size * NANOSECONDS_PER_MINUTE,
+                      NANOSECONDS_PER_MINUTE)
+        day_mins = np.append(day_mins[:120], day_mins[-120:])
+        pieces.append(day_mins
+        )
+
+    out = np.concatenate(pieces).view('datetime64[ns]')
+    # assert len(out) == num_minutes
+    return out
+
 
 class XSHGExchangeCalendar(PrecomputedTradingCalendar):
     """
@@ -508,3 +542,22 @@ class XSHGExchangeCalendar(PrecomputedTradingCalendar):
     @property
     def precomputed_holidays(self):
         return precomputed_shanghai_holidays
+
+    @lazyval
+    def all_minutes(self):
+        """
+        Returns a DatetimeIndex representing all the minutes in this calendar.
+        """
+        print('xshg all_minutes')
+        opens_in_ns = self._opens.values.astype(
+            'datetime64[ns]',
+        ).view('int64')
+
+        closes_in_ns = self._closes.values.astype(
+            'datetime64[ns]',
+        ).view('int64')
+
+        return pd.DatetimeIndex(
+            compute_all_minutes_cn(opens_in_ns, closes_in_ns),
+            tz=UTC,
+        )
