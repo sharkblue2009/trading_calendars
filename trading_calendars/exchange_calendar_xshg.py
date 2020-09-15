@@ -403,6 +403,7 @@ precomputed_shanghai_holidays = pd.to_datetime([
     "2020-01-28",
     "2020-01-29",
     "2020-01-30",
+	"2020-01-31",
     "2020-04-06",
     "2020-05-01",
     "2020-05-04",
@@ -548,7 +549,6 @@ class XSHGExchangeCalendar(PrecomputedTradingCalendar):
         """
         Returns a DatetimeIndex representing all the minutes in this calendar.
         """
-        print('xshg all_minutes')
         opens_in_ns = self._opens.values.astype(
             'datetime64[ns]',
         ).view('int64')
